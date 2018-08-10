@@ -1,0 +1,76 @@
+#uploading{
+	padding-bottom: 0;	
+}
+
+#editing{
+	padding-top: 0;
+	padding-bottom: 0;	
+}
+
+.options{
+	max-width: 300px;
+	margin:10px;
+}
+
+#saveThreshold{
+	margin-top:5px;
+	display:block;
+}
+
+#thresholdSlider{	
+	margin-bottom:5px;
+}
+
+#imagePreview{
+	margin-top:10px;
+}
+
+#canvasOutput{
+	max-width:100%;
+	cursor: crosshair;
+}
+
+#submit{
+	padding-top: 0;
+}
+
+
+#submitButton{
+	margin-top: 10px;
+}
+
+
+#results{
+	padding-bottom:12px;
+	min-height:300px;
+}
+
+#ocrResult{
+	font-size:3rem;
+}
+
+#ocrResult a{
+	color:black;	
+}
+
+#kanjiCharacter{
+	font-weight: normal;
+}
+
+#kanjiDetails p{
+	margin-bottom: 40px;
+}
+
+.dropdown-trigger a{
+	line-height: 1.5;	
+}
+
+.hints{
+	padding-top: 5px;
+	padding-bottom: 5px;
+	margin-top: 10px;
+}
+
+.postUpload, #postResults, #kanjiDetails, .dictionaryHeadings{
+	display:none;
+}

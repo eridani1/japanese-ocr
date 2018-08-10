@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="stylesheet" href="/css/bulma.css">
+		<link rel="stylesheet" href="/css/custom.css">
+		<title>Japanese OCR</title>
+		<link rel="shortcut icon" href="/css/favicon.ico" />
+		<script defer src="https://use.fontawesome.com/releases/v5.0.7/js/all.js"></script>
+		<script src="/dist/tesseract.dev.js"></script>		
+		<script async src="/dist/opencv.js" type="text/javascript"></script>
+		<script src="/dist/oboe-browser.js"></script>
+		<script src="/socket.io/socket.io.js"></script>		
+	</head>
+
+	<body>	
+		<div class="container is-fluid">
+			<div class="columns">
+				<div class="column is-half">
+					<section class="section" id="uploading">
+						<h1 class="title">Step 1 - Select Image</h1>
+						<div id="inputUpload">							
+							<div class="file has-name">
+							  <label class="file-label">
+								<input id="fileinput" class="file-input" type="file" name="resume" onchange="showFile()" accept="image/*">
+								<span class="file-cta">
+								  <span class="file-icon">
+									<i class="fas fa-upload"></i>
+								  </span>
+								  <span class="file-label">
+									Browse…
+								  </span>
+								</span>
+								<span id="filename" class="file-name">No file selected</span>
+							  </label>
+							  </div>
+						</div>
+						
+						<div id="inputURL">							
+							<input id="imageURL" class="input" type="text" placeholder="Paste URL">
+							<a id="urlButton" class="button" onclick="sendURL()">Submit URL</a>
+						</div>
+						
+						<div>
+							<p><strong>You can also use a Screenshot by pressing Ctrl+V</strong></p>
+						</div>
+						
+						<article class="message">
+							<div class="message-body hints">
+								<p>High resolution images with clear characters will produce better results.</p>
+								<p>Images from URL must be less than 1000×1000 pixels in size.</p>
+							</div>
+						</article>
+								
+						<hr class="hr">	
+					</section>
+								
+					
+					<section id="editing" class="section postUpload">
+						<h1 class="title">Step 2 - Edit Image</h1>						
+						<div id="editButtons">
+							<button class="button is-danger" onclick="resetImage()">Reset</button>
+							<button class="button" onclick="toggleOptions('resizeOptions')">Resize Options</button>
+							<button class="button" onclick="toggleOptions('rotateOptions')">Rotate Options</button>
+							<button class="button" onclick="toggleOptions('thresholdOptions')">Threshold Options</button>
+							<button class="button" onclick="cropImage()">Crop</button>
+							
+							<div id="resizeOptions" class="options box" style="display:none;">
+								<button class="button" onclick="resizeImage(0.5)">0.5×</button>
+								<button class="button" onclick="resizeImage(1.25)">1.25×</button>
+								<button class="button" onclick="resizeImage(1.5)">1.5×</button>
+								<button class="button" onclick="resizeImage(2)">2.0×</button>
+								<div id=resizeSlider>
+									<div>
+										<p>Custom Value: <span id="resizeNumber"></span></p>									
+										<input type="range" min="0.1" max="2" value="1" step="0.05" id="resizeValue">	
+									</div>
+									<button class="button" onclick="saveEdit()">Save</button>
+								</div>
+							</div>
+							
+							<div id="rotateOptions" class="options box" style="display:none;">
+								<button class="button" onclick="rotateImage(90)">-90°</button>
+								<button class="button" onclick="rotateImage(-90)">+90°</button>
+								<div id=rotateSlider>
+									<div>
+										<p>Custom Value: <span id="rotateNumber"></span></p>									
+										<input type="range" min="-90" max="90" value="0" step="1" id="rotateValue">	
+									</div>
+									<button class="button" onclick="saveEdit()">Trim and Save</button>
+								</div>
+							</div>
+							
+							<div id="thresholdOptions" class="options box" style="display:none;">
+								<div id="thresholdSlider">
+									<p>Threshold Value: <span id="threshNumber"></span></p>								
+									<input type="range" min="0" max="200" value="100" id="threshValue">
+								</div>
+								
+								<p>Threshold Type:</p>
+								<div class="select">
+									<select id="thresholdType"onchange="thresholdImage()">										
+										<option>Binary</option>
+										<option>Binary Inverted</option>
+										<option>Truncate</option>
+										<option>To Zero</option>
+										<option>To Zero Inverted</option>
+										<option>Otsu</option>
+										<option>Triangle</option>
+									</select>
+								</div>
+								<button id="saveThreshold" class="button" onclick="saveEdit()">Save</button>
+							</div>
+							
+						</div>
+						
+						<div id="imagePreview" class="inputoutput box">			
+							<canvas id="canvasOutput" ></canvas>
+						</div>
+						
+						<article class="message">
+							<div class="message-body hints">
+								<p>For best results, ensure the image contains only the characters you wish to scan and are enlarged enough to read. A maximum width of 800 pixels is allowed.</p>
+								<p>To crop image, highlight an area on the image by clicking and dragging, then click the 'Crop' button.</p>
+								<p>Try experimenting with different Thresholding options if characters are difficult to read.</p>
+							</div>
+						</article>
+
+						
+						<hr class="hr">						
+					</section>
+					
+					<section id="submit" class="section postUpload">
+						<h1 class="title">Step 3 - Submit Image</h1>						
+						<p>Select Language (may help with some Kanji):</p>
+						<div class="select">
+							<select id="languageSelect">
+								<option value='jpn' selected>Japanese</option>
+								<option value='chi_sim' >Chinese (Simplified)</option>
+								<option value='chi_tra' >Chinese (Traditional)</option>						
+							</select>
+						</div>	
+						<div>							
+							<button id="submitButton" class="button is-large is-link" onclick="scanFile()">Submit</button>
+						</div>	
+						
+						<article class="message">
+							<div class="message-body hints">
+								<p>You can continue editing and resubmit image if results are unsatisfactory.</p>
+							</div>
+						</article>							
+								
+						<hr class="hr">						
+					</section>					
+				</div>
+				
+				<div class="column is-half">
+					<section id="results" class="section">
+						<h1 class="title">Results</h1>						
+						<div id="ocrStatus"></div>												
+						<div id="ocrResult"></div>
+						
+						<div id="postResults">
+							<div>								
+								<textarea id="rawText" class="textarea is-medium" rows="4"></textarea>											
+							</div>
+							<a id="translateButton" class="button" href="" target="_blank">Google Translate</a>
+							<button class="button" onclick="copyText()">Copy to Clipboard</button>
+							<button class="button" onclick="generateTranslation()">Generate Definitions</button>
+							<div>								
+								<textarea id="translatedText" class="textarea is-medium" rows="2"></textarea>											
+							</div>
+							
+							<article class="message">
+								<div class="message-body hints">
+									<p>Click a character to display details below (Kanji only).</p>							
+									<p>Mouseover characters to show any recognised alternatives in a dropdown menu.</p>
+									<p>Click an alternate character to replace the original with chosen character.</p>
+								</div>
+							</article>
+						</div>	
+					</section>
+					<hr class="hr">
+					
+					<section id="kanjiDetails" class="section">
+						<h1 class="title">Kanji Details</h1>
+						<div>
+							<h2 id="kanjiCharacter" class="title is-2">Searching...</h2>
+							
+							<h3 id="titleMeaning" class="dictionaryHeadings title is-5">Meaning</h3>
+							<p id="kanjiMeaning" class="dictionaryContents subtitle is-5"></p>
+							
+							<h3 id="titleKun" class="dictionaryHeadings title is-5">Kun'yomi</h3>
+							<p id="kanjiKun" class="dictionaryContents subtitle is-5"></p>
+							
+							<h3 id="titleOn" class="dictionaryHeadings title is-5">On'yomi</h3>
+							<p id="kanjiOn" class="dictionaryContents subtitle is-5"></p>
+							
+							<h3 id="titleNanori" class="dictionaryHeadings title is-5">Nanori</h3>
+							<p id="kanjiNanori" class="dictionaryContents subtitle is-5"></p>
+							
+							<a id="searchLink" href="" target="_blank"><a>
+						</div>	
+					<hr class="hr">						
+					</section>
+					
+
+				</div>		
+			</div>	
+			
+			<template id="dropdownTemplate"><div class="dropdown is-hoverable"><div class="dropdown-trigger"><a id="" onclick="" class="resultSymbols"></a></div><div class="dropdown-menu" ><div class="dropdown-content"><div class="dropdown-item"><div id=""><div class="has-text-centered"><canvas id="" width="50" height="50"></canvas></div><div class="removeButton"><a onclick="" class="subtitle is-5">Remove</a></div></div></div></div></div></div></template>
+
+			<template id="choicesTemplate"><a id="" class="subtitle is-3" onclick=""></a></template>
+		</div>
+		
+		<script>
+		var canvas = document.getElementById("canvasOutput");
+		var context = canvas.getContext("2d");			
+		var coordinate1;
+		var coordinate2;
+		var newImage;
+		var originalImage;
+		var imageCentered = false;
+		var dimensions = [0,0];
+		
+		var thresholdSlider = document.getElementById("threshValue");		
+		var thresholdSliderValue = document.getElementById("threshNumber");		
+		thresholdSliderValue.innerHTML = thresholdSlider.value;		
+		thresholdSlider.oninput = function() {
+		  thresholdSliderValue.innerHTML = this.value;
+		  thresholdImage();
+		}	
+		
+		var resizeSlider = document.getElementById("resizeValue");
+		var resizeSliderValue = document.getElementById("resizeNumber");
+		resizeSliderValue.innerHTML = parseFloat(resizeSlider.value).toFixed(2) + "×";
+		resizeSlider.oninput = function() {
+		  resizeSliderValue.innerHTML = parseFloat(this.value).toFixed(2) + "×";
+		  resizeCustom();
+		}
+
+		var rotateSlider = document.getElementById("rotateValue");
+		var rotateSliderValue = document.getElementById("rotateNumber");
+		rotateSliderValue.innerHTML = rotateSlider.value+"°";
+		rotateSlider.oninput = function() {
+		  rotateSliderValue.innerHTML = this.value+"°";
+		  rotateCustom();
+		}		
+
+		window.addEventListener("paste", function(pasteEvent){
+			showScreenshot(pasteEvent);			
+		}, false);
+		
+		var textbox = document.getElementById("rawText");
+		var translateButton = document.getElementById("translateButton");
+		textbox.onchange = function(){			
+			translateButton.href = "https://translate.google.com/#ja/en/" + textbox.value;
+		}
+			
+
+		function showFile(){			
+			var image = document.getElementById('fileinput');			
+			document.getElementById('filename').innerHTML = image.files[0].name;
+									
+			let imageElement = new Image;			
+			imageElement.src = URL.createObjectURL(image.files[0]);	
+			imageElement.onload = function() {
+				let src = cv.imread(imageElement);
+				cv.imshow('canvasOutput', src);
+				newImage = cv.imread('canvasOutput');
+				originalImage = cv.imread('canvasOutput');
+				src.delete();								
+			};
+			displayPostUpload();			
+		}
+		
+		function showURL(data){
+			var image = new Image;
+			image.src = data;
+			
+			image.onload = function() {
+				let src = cv.imread(image);
+				cv.imshow('canvasOutput', src);
+				newImage = cv.imread('canvasOutput');
+				originalImage = cv.imread('canvasOutput');
+				src.delete();				
+			};
+			
+			displayPostUpload();
+			
+		}
+
+		function showScreenshot(event){
+			var items = event.clipboardData.items;
+			for (var counter = 0; counter < items.length; counter++) {
+				// Skip if not image
+				if (items[counter].type.indexOf("image") == -1){
+					var notImageFlag = true;
+					continue;			
+				}			
+				var blob = items[counter].getAsFile();
+			}
+			if (!notImageFlag){
+				let imageElement = new Image;			
+				imageElement.src = URL.createObjectURL(blob);	
+				imageElement.onload = function() {
+					let src = cv.imread(imageElement);
+					cv.imshow('canvasOutput', src);
+					newImage = cv.imread('canvasOutput');
+					originalImage = cv.imread('canvasOutput');
+					src.delete();					
+					displayPostUpload();					
+				};
+			}
+			
+		}
+		
+		function centerImage(){
+			let diagonal = Math.sqrt(canvas.height*canvas.height+canvas.width*canvas.width);
+			let verticalBorder = (diagonal - canvas.height)/2;
+			let horizontalBorder = (diagonal - canvas.width)/2;
+			
+			let src = cv.imread('canvasOutput');
+			let dst = new cv.Mat();
+			let border = new cv.Scalar(0, 0, 0, 0);
+			cv.copyMakeBorder(src, dst, verticalBorder, verticalBorder, horizontalBorder, horizontalBorder, cv.BORDER_CONSTANT, border);
+			cv.imshow('canvasOutput', dst);
+			src.delete();
+			dst.delete();
+		}
+		
+		function displayPostUpload(){
+			var displayElements = document.getElementsByClassName('postUpload');
+			Array.prototype.forEach.call(displayElements, function(element, index){
+				element.style.display = "block";				
+			});
+		}
+		
+		function resetImage(){
+			let src = new cv.Mat(originalImage);
+			cv.imshow('canvasOutput', src);
+			newImage = cv.imread('canvasOutput');
+			src.delete();
+			imageCentered = false;
+		}
+		
+		function toggleOptions(element){
+			var optionElements = document.getElementsByClassName('options');
+			Array.prototype.forEach.call(optionElements, function(option, index){
+				if (element != option.id){
+					option.style.display = "none";					
+				}
+			});
+			
+			var toggle = document.getElementById(element);
+			if (toggle.style.display === "none"){
+				toggle.style.display = "block";
+			} else {
+				toggle.style.display = "none";
+			}			
+		}
+		
+		function resizeImage(factor){			
+			let src = cv.imread('canvasOutput');
+			let dst = new cv.Mat();
+			if (canvas.width * factor<800){				
+				let dsize = new cv.Size(0, 0);
+				cv.resize(src, dst, dsize, factor, factor, cv.INTER_CUBIC);	
+			} else {
+				let aspectRatio = canvas.height/canvas.width;
+				let dsize = new cv.Size(800, 800*aspectRatio);
+				cv.resize(src, dst, dsize, 0, 0, cv.INTER_CUBIC);
+			}				
+			cv.imshow('canvasOutput', dst);
+			newImage = cv.imread('canvasOutput');
+			src.delete();
+			dst.delete();							
+		}
+		
+		function resizeCustom(){
+			let src = new cv.Mat(newImage);
+			let dst = new cv.Mat();			
+			let factor = parseFloat(resizeSlider.value);
+			if (src.size().width * factor<800){				
+				let dsize = new cv.Size(0, 0);
+				cv.resize(src, dst, dsize, factor, factor, cv.INTER_CUBIC);	
+			} else {
+				let aspectRatio = canvas.height/canvas.width;
+				let dsize = new cv.Size(800, 800*aspectRatio);
+				cv.resize(src, dst, dsize, 0, 0, cv.INTER_CUBIC);
+			}				
+			cv.imshow('canvasOutput', dst);
+			src.delete();
+			dst.delete();							
+		}
+		
+		function rotateImage(angle){	
+			let src = cv.imread('canvasOutput');
+			let dst = new cv.Mat();
+			
+			let diagonal = Math.sqrt(src.rows*src.rows+src.cols*src.cols);
+			let verticalBorder = (diagonal - src.rows)/2;
+			let horizontalBorder = (diagonal - src.cols)/2;
+			
+			
+			let border = new cv.Scalar(0, 0, 0, 0);
+			cv.copyMakeBorder(src, src, verticalBorder, verticalBorder, horizontalBorder, horizontalBorder, cv.BORDER_CONSTANT, border);
+			
+			let dsize = new cv.Size(src.rows, src.cols);
+			let center = new cv.Point(src.cols / 2, src.rows / 2);			
+			let M = cv.getRotationMatrix2D(center, angle, 1);
+			cv.warpAffine(src, src, M, dsize, cv.INTER_CUBIC, cv.BORDER_CONSTANT, new cv.Scalar());
+			
+			let area = new cv.Rect(verticalBorder,horizontalBorder, src.cols-verticalBorder*2, src.rows-horizontalBorder*2);
+			dst = src.roi(area);
+			
+			cv.imshow('canvasOutput', dst);
+			newImage = cv.imread('canvasOutput');
+			src.delete();
+			dst.delete();
+			M.delete();	
+		}
+		
+		function rotateCustom(){
+			let src = new cv.Mat(newImage);
+			let dst = new cv.Mat();	
+			if (!imageCentered){
+				dimensions = [newImage.cols,newImage.rows];
+				let diagonal = Math.sqrt(src.rows*src.rows+src.cols*src.cols);
+				let verticalBorder = (diagonal - src.rows)/2;
+				let horizontalBorder = (diagonal - src.cols)/2;						
+				let border = new cv.Scalar(0, 0, 0, 0);
+				cv.copyMakeBorder(src, src, verticalBorder, verticalBorder, horizontalBorder, horizontalBorder, cv.BORDER_CONSTANT, border);				
+				cv.imshow('canvasOutput', src);
+				newImage = cv.imread('canvasOutput');				
+				imageCentered = true;
+			}			
+			let angle = 0-parseInt(rotateSlider.value);					
+			let dsize = new cv.Size(src.rows, src.cols);
+			let center = new cv.Point(src.cols / 2, src.rows / 2);			
+			let M = cv.getRotationMatrix2D(center, angle, 1);
+			cv.warpAffine(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+			cv.imshow('canvasOutput', dst);
+			src.delete();
+			dst.delete();
+			M.delete();
+		}
+		
+		function thresholdImage(){						
+			let src = new cv.Mat(newImage);				
+			let thresh = parseInt(thresholdSlider.value);
+			let type;
+			switch(document.getElementById("thresholdType").value){
+				case "Binary":
+					type = cv.THRESH_BINARY;
+					break;
+				case "Binary Inverted":
+					type = cv.THRESH_BINARY_INV;
+					break;
+				case "Truncate":
+					type = cv.THRESH_TRUNC;
+					break;
+				case "To Zero":
+					type = cv.THRESH_TOZERO;
+					break;
+				case "To Zero Inverted":
+					type = cv.THRESH_TOZERO_INV;
+					break;
+				case "Otsu":
+					type = cv.THRESH_OTSU;
+					break;
+				case "Triangle":
+					type = cv.THRESH_TRIANGLE;
+			}			
+			let dst = new cv.Mat();			
+			cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY, 0);
+			cv.threshold(src, dst, thresh, 250, type);
+			cv.imshow('canvasOutput', dst);
+			src.delete();
+			dst.delete();
+		}
+		
+		function saveEdit(){
+			if (imageCentered){
+				let src = cv.imread('canvasOutput');
+				let dst = new cv.Mat();										
+				
+				let radians = Math.PI/180;				
+				let angle = radians * parseInt(rotateSlider.value);
+								
+				let base = dimensions[0] * Math.abs(Math.cos(angle)) + dimensions[1] * Math.abs(Math.sin(angle));
+				let height = dimensions[1] * Math.abs(Math.cos(angle)) + dimensions[0] * Math.abs(Math.sin(angle));
+				
+				let areaX1 = (canvas.width-base)/2;
+				let areaY1 = (canvas.height-height)/2;
+				let areaX2 = canvas.width-areaX1*2;
+				let areaY2 = canvas.height-areaY1*2;
+
+				let area = new cv.Rect(areaX1,areaY1, areaX2, areaY2);
+				dst = src.roi(area);
+				cv.imshow('canvasOutput', dst);
+				src.delete();
+				dst.delete();
+				imageCentered = false;
+			}		
+			
+			newImage = cv.imread('canvasOutput');
+						
+		}
+		
+		function scanFile(){
+			var resultsElement = document.getElementById("ocrResult");
+			resultsElement.innerHTML = "";
+					
+			var file = document.getElementById('canvasOutput');
+			
+			Tesseract.workerOptions.langPath = window.location.origin + "/lang/";
+			
+			Tesseract.recognize(file, {
+				lang: document.querySelector("#languageSelect").value
+			})
+			.progress(function(result) {
+				document.getElementById("ocrStatus").innerText = "Status: " + result["status"] + " (" + (result["progress"] * 100) + "%)";
+			}).then(function(result){
+				var symbolArray = result.symbols;
+				var textString = result.text.replace(/ /g, "");				
+				var textArray = textString.split("");
+								
+				if (symbolArray.length > 50){
+					resultsElement.style.fontSize = "1.8rem";
+				} else {
+					resultsElement.style.fontSize = "3.0rem";
+				}
+				
+				if (symbolArray.length==0){
+					resultsElement.innerHTML = "No characters detected";
+				} else {
+					symbolArray.forEach(function(symbol, symbolIndex){
+						if (textArray[symbolIndex] == "\n"){
+							var breakTag = document.createElement("BR");
+							breakTag.setAttribute("class","resultSymbols");
+							resultsElement.appendChild(breakTag);
+							textArray.splice(symbolIndex,1);
+						}
+						
+						createDropdown(symbolIndex, symbol.text);
+
+						drawSymbols(symbol, symbolIndex);					
+						
+						var choiceArray = symbol.choices;
+						choiceArray.forEach(function(choice, choiceIndex){
+							addChoice(symbolIndex,choiceIndex, choice.text);
+						});
+					});			
+					
+				}
+				printText();
+			}).then(function(data){
+				document.getElementById("ocrStatus").innerText = "";
+				document.getElementById("postResults").style.display = "block";				
+			});
+		}
+		
+		function printText(){
+			textbox.value = ""
+			var symbolArray= document.getElementsByClassName("resultSymbols");			
+			Array.prototype.forEach.call(symbolArray, function(symbol, index){
+				if (symbol.nodeName == "BR"){
+					textbox.value += "\n";
+				} else {
+					textbox.value += symbol.innerText;
+				}
+			});
+			translateButton.href = "https://translate.google.com/#ja/en/" + textbox.value;
+		}
+		
+		function copyText(){
+			textbox.select();
+			document.execCommand("copy");
+		}
+		
+		function createDropdown(symbolNumber, elementText){
+			var template = document.getElementById("dropdownTemplate");
+			var clone = template.content.cloneNode(true);
+			
+			var symbolTag = clone.querySelector("a");
+			symbolTag.setAttribute("id","symbol"+symbolNumber);
+			symbolTag.setAttribute("onclick","dictionarySearch('"+elementText+"')");
+			symbolTag.innerText = elementText;
+			
+			var choicesTag = clone.querySelector(".dropdown-item > div")
+			choicesTag.setAttribute("id","ocrChoices"+symbolNumber);
+			
+			var removeTag = choicesTag.querySelector("a");
+			removeTag.setAttribute("onclick","removeSymbol("+symbolNumber+")");
+			
+			var canvasTag = clone.querySelector("canvas");
+			canvasTag.setAttribute("id","symbolCanvas"+symbolNumber);
+			
+			document.getElementById("ocrResult").appendChild(clone);
+		}
+		
+		function drawSymbols(symbolObject, symbolNumber){		
+			var symbolx = symbolObject.bbox.x0;
+			var symbolWidth = symbolObject.bbox.x1 - symbolx;
+			var symboly = symbolObject.bbox.y0;
+			var symbolHeight = symbolObject.bbox.y1 - symboly;
+			var symbolAspectRatio = symbolWidth/symbolHeight;
+				
+			var symbolCanvas = document.getElementById("symbolCanvas"+symbolNumber);
+			var symbolContext = symbolCanvas.getContext("2d");
+						
+			symbolCanvas.width = symbolAspectRatio*50;
+			symbolHeight.height = 50;
+						
+			symbolContext.drawImage(canvas, symbolx, symboly, symbolWidth, symbolHeight,0,0,symbolAspectRatio*50,50);							
+		}
+		
+		function addChoice(symbolNumber, choiceNumber, choiceText){
+			var template = document.getElementById("choicesTemplate");
+			var clone = template.content.cloneNode(true);
+			
+			var choiceTag = clone.querySelector("a");
+			choiceTag.setAttribute("id","symbol"+symbolNumber+"choice"+choiceNumber);
+			choiceTag.setAttribute("onclick","replaceSymbol("+symbolNumber+","+choiceNumber+")");
+			choiceTag.innerText = choiceText;
+			
+			var choiceDropdown = document.getElementById("ocrChoices"+symbolNumber);			
+			var removeTag = choiceDropdown.getElementsByClassName("removeButton")[0];			
+			choiceDropdown.insertBefore(clone, removeTag);	
+		}
+		
+		function replaceSymbol(symbolNumber, choiceNumber){
+			var newSymbol = document.getElementById("symbol"+symbolNumber+"choice" + choiceNumber).innerText;
+			document.getElementById("symbol" + symbolNumber).innerText = newSymbol;
+			document.getElementById("symbol" + symbolNumber).setAttribute("onclick","dictionarySearch('"+newSymbol+"')");
+			printText();
+		}
+		
+		function removeSymbol(symbolNumber){
+			document.getElementById("symbol" + symbolNumber).innerHTML = "";
+			printText();
+		}
+		
+		function dictionarySearch(character){		
+			document.getElementById("kanjiDetails").style.display = "block";		
+			document.getElementById("kanjiCharacter").innerText = "Searching...";
+
+			var contents = document.getElementsByClassName("dictionaryContents");		
+			Array.prototype.forEach.call(contents, function(content, index){
+				content.innerHTML = "";
+			});	
+			
+			var headings = document.getElementsByClassName("dictionaryHeadings");			
+			Array.prototype.forEach.call(headings, function(heading, index){
+				heading.style.display = "none";
+			});					
+				
+		
+			oboe('/kanjidict/kanjidic2.json')
+				.node('character.*', function(entry){
+					if(entry.literal === character){					
+						document.getElementById("kanjiCharacter").innerText = entry.literal;
+						
+						if (entry.reading_meaning.rmgroup.meaning){						
+							var meaningString = entry.reading_meaning.rmgroup.meaning.toString();
+							meaningString = meaningString.replace(/,/g, ", ");
+							document.getElementById("titleMeaning").style.display = "block";						
+							document.getElementById("kanjiMeaning").innerText = meaningString;
+						}
+						
+						// the 'reading' object may contain multiple readings, in which case the variable is an array
+						// instead of an object
+						if(Array.isArray(entry.reading_meaning.rmgroup.reading)){					
+							var readingArray = entry.reading_meaning.rmgroup.reading;
+							var kunArray = new Array;
+							var onArray = new Array;
+							
+							readingArray.forEach(function(reading, index){
+								if (reading.r_type === "ja_kun"){								
+									kunArray.push(reading.text);								
+								} else if (reading.r_type === "ja_on"){	
+									onArray.push(reading.text);
+								}
+							});					
+												
+							if (kunArray.length > 0){
+								var kunString = kunArray.toString();
+								kunString = kunString.replace(/,/g, ", ");
+								document.getElementById("titleKun").style.display = "block";
+								document.getElementById("kanjiKun").innerText = kunString;
+							}
+							
+							if (onArray.length > 0){
+								var onString = onArray.toString();
+								onString = onString.replace(/,/g, ", ");
+								document.getElementById("titleOn").style.display = "block";
+								document.getElementById("kanjiOn").innerText = onString;
+							}
+						} else {
+							if (entry.reading_meaning.rmgroup.reading.r_type === "ja_kun"){	
+								document.getElementById("titleKun").style.display = "block";						
+								document.getElementById("kanjiKun").innerText = entry.reading_meaning.rmgroup.reading.text;
+							} else if (entry.reading_meaning.rmgroup.reading.r_type === "ja_on"){
+								document.getElementById("titleOn").style.display = "block";
+								document.getElementById("kanjiOn").innerText = entry.reading_meaning.rmgroup.reading.text;
+							}
+						}				
+							
+						if (entry.reading_meaning.nanori){
+							var nanoriString = entry.reading_meaning.nanori.toString();
+							nanoriString = nanoriString.replace(/,/g, ", ");
+							document.getElementById("titleNanori").style.display = "block";
+							document.getElementById("kanjiNanori").innerText = nanoriString;
+						}						
+						document.getElementById("searchLink").innerText = "View on Jisho.org";
+						document.getElementById("searchLink").href = "https://jisho.org/search/"+entry.literal+"%23kanji";
+						this.abort();
+					} else {
+						document.getElementById("kanjiCharacter").innerText = "Character not found"
+						document.getElementById("searchLink").innerText = "Google search";
+						document.getElementById("searchLink").href = "https://www.google.com/search?q="+character;
+					}					
+				});		
+		}
+		
+		function generateTranslation(){
+			var translateBox = document.getElementById("translatedText");
+			translateBox.value = "";
+			var characterArray = textbox.value.split("");
+			var translatedArray = [];
+			
+			characterArray.forEach(function(character, characterIndex){
+				oboe('/kanjidict/kanjidic2.json')
+					.node('character.*', function(entry){
+						if(entry.literal === character){
+							var meanings = entry.reading_meaning.rmgroup.meaning;							
+							if (Array.isArray(meanings)){
+								translatedArray[characterIndex] = meanings[0];								
+							} else {
+								translatedArray[characterIndex] = meanings;
+							}
+							
+							translateBox.value = translatedArray.toString().replace(/,/g, " ");
+							this.abort();
+						}						
+				})	
+			});
+		}
+		
+		document.addEventListener("DOMContentLoaded", init, false);
+		function init(){			
+			canvas.addEventListener("mousedown", mousedown, false);			
+			canvas.addEventListener("mouseup", mouseup, false);									
+		}		
+		
+		function getPosition(canvas, event){			
+			var rect = canvas.getBoundingClientRect();
+			var scaleX = canvas.width / canvas.scrollWidth;
+			var scaleY = canvas.height / canvas.scrollHeight;
+			return {			
+				x: (event.clientX - rect.left)*scaleX,
+				y: (event.clientY - rect.top)*scaleY
+			};
+		}
+		
+		function mousedown(event){
+			let src = new cv.Mat(newImage);
+			cv.imshow('canvasOutput', src);
+			src.delete();
+			coordinate1 = getPosition(canvas, event);
+			canvas.addEventListener("mousemove", mousemove, false);
+		}
+		
+		function mousemove(event){
+			let src = new cv.Mat(newImage);
+			cv.imshow('canvasOutput', src);
+			src.delete();
+			
+			coordinate2 = getPosition(canvas, event);
+				
+			if (coordinate1.x < coordinate2.x){
+				var x = coordinate1.x;
+				var newWidth = coordinate2.x - coordinate1.x;
+			} else {
+				var x = coordinate2.x;
+				var newWidth = coordinate1.x - coordinate2.x;
+			}
+				
+			if (coordinate1.y < coordinate2.y){
+				var y = coordinate1.y;
+				var newHeight = coordinate2.y - coordinate1.y;
+			} else {
+				var y = coordinate2.y;
+				var newHeight = coordinate1.y - coordinate2.y;
+			}
+			if (newWidth>0 && newHeight>0){
+				context.beginPath();
+				context.fillStyle = "rgba(0, 0, 0, 0.4)";
+				context.rect(x,y,newWidth,newHeight);
+				context.rect(canvas.width,0,0-canvas.width,canvas.height);
+				context.fill();
+			}
+			
+		}
+		
+		function mouseup(event){
+			canvas.removeEventListener("mousemove", mousemove);
+		}
+		
+		function cropImage(){
+			if(coordinate1 && coordinate2){
+				if (coordinate1.x < coordinate2.x){
+					var x = coordinate1.x;
+					var newWidth = coordinate2.x - coordinate1.x;
+				} else {
+					var x = coordinate2.x;
+					var newWidth = coordinate1.x - coordinate2.x;
+				}
+				
+				if (coordinate1.y < coordinate2.y){
+				var y = coordinate1.y;
+					var newHeight = coordinate2.y - coordinate1.y;
+				} else {
+					var y = coordinate2.y;
+					var newHeight = coordinate1.y - coordinate2.y;
+				}
+				
+				
+				let src = new cv.Mat(newImage);
+				let dst = new cv.Mat();
+				let area = new cv.Rect(x,y,newWidth, newHeight);
+				dst = src.roi(area);
+				cv.imshow('canvasOutput', dst);	
+				src.delete();
+				dst.delete();			
+				newImage = cv.imread('canvasOutput');
+			}
+		}
+		
+		function sendURL(){
+			var address = document.getElementById('imageURL');			
+			if (address.value.match(/^(?:http(s)?:\/\/).*\.(?:png|jpg|jpeg|gif|png|svg)/) == null){
+				address.setAttribute("class","input is-danger");
+				address.setAttribute("placeholder", "Invalid URL");
+			} else {
+				// limit image size (1000x1000)
+				const maxPixels = 1000000;
+				var submitButton = document.getElementById("urlButton");
+				var testImage = new Image;			
+				testImage.src = address.value;
+				submitButton.setAttribute("class","button is-loading");
+				
+					testImage.onload = function() {
+						if (testImage.naturalWidth * testImage.naturalHeight > maxPixels){	
+							address.setAttribute("class","input is-danger");
+							address.setAttribute("placeholder", "Image too large");
+						} else {						
+							var socket = io();
+							socket.emit("URL", testImage.src);
+							
+							socket.on("URL", function(data){
+								showURL(data);
+								socket.disconnect(close);
+							});
+							
+							address.setAttribute("class","input is-success");
+							address.setAttribute("placeholder", "Paste URL");
+						}
+						submitButton.setAttribute("class","button");
+					}
+					
+					testImage.onerror = function(){
+						address.setAttribute("class","input is-danger");
+						address.setAttribute("placeholder", "Invalid Image");
+					}
+									
+			}
+			address.value = '';			
+		}
+		
+		</script>
+	</body>
+
+
+</html>

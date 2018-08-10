@@ -1,0 +1,58 @@
+#uploading{
+	padding-bottom: 0;	
+}
+
+#editing, #submit, #kanjiDetails{
+	padding-top: 0;
+	padding-bottom: 0;	
+}
+
+#inputUpload label{
+	margin: 0 auto;
+}
+
+#results{
+	padding-top: 0;
+}
+
+#imagePreview{
+	margin-top:10px;
+}
+
+#canvasOutput{
+	max-width:100%;
+}
+
+
+#submitButton{
+	margin-top: 10px;
+}
+
+#results{
+	padding-bottom:12px;
+	min-height:300px;
+}
+
+#ocrResult{
+	font-size:3rem;
+}
+
+#ocrResult a{
+	color:black;	
+}
+
+#kanjiCharacter{
+	font-weight: normal;
+}
+
+#kanjiDetails p{
+	margin-bottom: 40px;
+}
+
+.dropdown-trigger a{
+	line-height: 1.5;	
+}
+
+.postUpload, #postResults, #kanjiDetails, .dictionaryHeadings{
+	display:none;
+}

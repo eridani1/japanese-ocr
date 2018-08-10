@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="stylesheet" href="/css/bulma.css">
+		<link rel="stylesheet" href="/css/mobile.css">
+		<title>Japanese OCR</title>
+		<link rel="shortcut icon" href="/css/favicon.ico" />
+		<script defer src="https://use.fontawesome.com/releases/v5.0.7/js/all.js"></script>		
+		<script src="/dist/oboe-browser.js"></script>		
+		<script src="/socket.io/socket.io.js"></script>	
+	</head>
+
+	<body>	
+		<div class="container is-fluid">
+			<div class="columns">
+				<div class="column has-text-centered">
+					<section class="section" id="uploading">
+						<h1 class="title">Select Image</h1>
+						<div id="inputUpload">							
+							<div class="file has-name is-boxed">
+							  <label class="file-label">
+								<input id="fileinput" class="file-input" type="file" name="resume" onchange="showFile()" accept="image/*">
+								<span class="file-cta">
+								  <span class="file-icon">
+									<i class="fas fa-upload"></i>
+								  </span>
+								  <span class="file-label">
+									Browse…
+								  </span>
+								</span>
+								<span id="filename" class="file-name">No file selected</span>
+							  </label>
+							  </div>
+						</div>	
+						<hr class="hr">	
+					</section>
+								
+					
+					<section id="editing" class="section postUpload">						
+						<div id="imagePreview" class="inputoutput box">			
+							<canvas id="canvasOutput" ></canvas>
+						</div>
+						
+						<hr class="hr">						
+					</section>
+					
+					<section id="submit" class="section postUpload">
+						<h1 class="title">Submit Image</h1>						
+						<p>Select Language (may help with some Kanji):</p>
+						<div class="select">
+							<select id="languageSelect">
+								<option value='jpn' selected>Japanese</option>
+								<option value='chi_sim' >Chinese (Simplified)</option>
+								<option value='chi_tra' >Chinese (Traditional)</option>						
+							</select>
+						</div>	
+						<div>							
+							<button id="submitButton" class="button is-large is-link" onclick="scanFile()">Submit</button>
+						</div>	
+									
+						<hr class="hr">						
+					</section>					
+					
+					<div id="postResults">
+					<section id="results" class="section">
+					
+						<h1 class="title">Results</h1>						
+						<div id="ocrStatus"></div>												
+						<div id="ocrResult"></div>
+						
+						
+							<div>								
+								<textarea id="rawText" class="textarea is-medium" rows="4"></textarea>											
+							</div>
+							<a id="translateButton" class="button" href="" target="_blank">Google Translate</a>
+							<button class="button" onclick="copyText()">Copy to Clipboard</button>
+							<button class="button" onclick="generateTranslation()">Generate Definitions</button>
+							<div>								
+								<textarea id="translatedText" class="textarea is-medium" rows="2"></textarea>											
+							</div>	
+					</section>
+					<hr class="hr">
+					</div>	
+					
+					<section id="kanjiDetails" class="section">
+						<h1 class="title">Kanji Details</h1>
+						<div>
+							<h2 id="kanjiCharacter" class="title is-2">Searching...</h2>
+							
+							<h3 id="titleMeaning" class="dictionaryHeadings title is-5">Meaning</h3>
+							<p id="kanjiMeaning" class="dictionaryContents subtitle is-5"></p>
+							
+							<h3 id="titleKun" class="dictionaryHeadings title is-5">Kun'yomi</h3>
+							<p id="kanjiKun" class="dictionaryContents subtitle is-5"></p>
+							
+							<h3 id="titleOn" class="dictionaryHeadings title is-5">On'yomi</h3>
+							<p id="kanjiOn" class="dictionaryContents subtitle is-5"></p>
+							
+							<h3 id="titleNanori" class="dictionaryHeadings title is-5">Nanori</h3>
+							<p id="kanjiNanori" class="dictionaryContents subtitle is-5"></p>
+							
+							<a id="searchLink" href="" target="_blank"><a>
+						</div>	
+					<hr class="hr">						
+					</section>
+					
+
+				</div>		
+			</div>	
+			
+			<template id="dropdownTemplate"><a id="" onclick="" class="resultSymbols"></a></template>
+		</div>
+		
+		<script>
+		var canvas = document.getElementById("canvasOutput");
+		var context = canvas.getContext("2d");
+		var textbox = document.getElementById("rawText");
+		var translateButton = document.getElementById("translateButton");
+		textbox.onchange = function(){			
+			translateButton.href = "https://translate.google.com/#ja/en/" + textbox.value;
+		}
+			
+
+		function showFile(){			
+			var image = document.getElementById('fileinput');			
+			document.getElementById('filename').innerHTML = image.files[0].name;
+									
+			let imageElement = new Image;			
+			imageElement.src = URL.createObjectURL(image.files[0]);	
+			imageElement.onload = function() {
+				var ratio = imageElement.naturalHeight/imageElement.naturalWidth;				
+				canvas.width = 800;
+				canvas.height = 800*ratio;
+				context.drawImage(imageElement,0,0,imageElement.naturalWidth,imageElement.naturalHeight,0,0,800,800*ratio);		
+				scanFile();	
+			};
+			displayPostUpload();
+				
+		}
+		
+		function displayPostUpload(){
+			var displayElements = document.getElementsByClassName('postUpload');
+			Array.prototype.forEach.call(displayElements, function(element, index){
+				element.style.display = "block";				
+			});
+		}
+		
+		function scanFile(){
+			var submitButton = document.getElementById("submitButton");
+			submitButton.setAttribute("class", "button is-large is-link is-loading");
+			var resultsElement = document.getElementById("ocrResult");
+			resultsElement.innerHTML = "";					
+			
+			var dataObject = {
+				imageData: canvas.toDataURL('image/jpeg', 1.0),
+				lang: document.querySelector("#languageSelect").value
+			}			
+			var socket = io();
+			socket.emit("scan", dataObject);			
+			
+			socket.on("scan", function(result){				
+				var resultsString = result;		
+				socket.disconnect(close);
+				submitButton.setAttribute("class", "button is-large is-link");
+				
+				var symbolArray = resultsString.split("");
+				
+				if (symbolArray.length==0){
+					resultsElement.innerHTML = "No characters detected";
+				} else {
+					symbolArray.forEach(function(symbol, symbolIndex){
+						if (symbol == "\n"){
+							var breakTag = document.createElement("BR");
+							breakTag.setAttribute("class","resultSymbols");
+							resultsElement.appendChild(breakTag);
+						} else {					
+							createDropdown(symbolIndex, symbol);
+						}
+					})						
+				}						
+				printText();
+				document.getElementById("postResults").style.display = "block";
+				resultsElement.scrollIntoView(true);
+			});
+		}
+		
+		function printText(){
+			textbox.value = ""
+			var symbolArray= document.getElementsByClassName("resultSymbols");			
+			Array.prototype.forEach.call(symbolArray, function(symbol, index){
+				if (symbol.nodeName == "BR"){
+					textbox.value += "\n";
+				} else {
+					textbox.value += symbol.innerText;
+				}
+			});
+			translateButton.href = "https://translate.google.com/#ja/en/" + textbox.value;
+		}
+		
+		function copyText(){
+			textbox.select();
+			document.execCommand("copy");
+		}
+		
+		function createDropdown(symbolNumber, elementText){
+			var template = document.getElementById("dropdownTemplate");
+			var clone = template.content.cloneNode(true);
+			
+			var symbolTag = clone.querySelector("a");
+			symbolTag.setAttribute("id","symbol"+symbolNumber);
+			symbolTag.setAttribute("onclick","dictionarySearch('"+elementText+"')");
+			symbolTag.innerText = elementText;
+			
+			document.getElementById("ocrResult").appendChild(clone);
+		}
+				
+		function dictionarySearch(character){			
+			document.getElementById("kanjiDetails").style.display = "block";	
+			document.getElementById("kanjiDetails").scrollIntoView(true);			
+			document.getElementById("kanjiCharacter").innerText = "Searching...";
+
+			var contents = document.getElementsByClassName("dictionaryContents");		
+			Array.prototype.forEach.call(contents, function(content, index){
+				content.innerHTML = "";
+			});	
+			
+			var headings = document.getElementsByClassName("dictionaryHeadings");			
+			Array.prototype.forEach.call(headings, function(heading, index){
+				heading.style.display = "none";
+			});					
+				
+		
+			oboe('/kanjidict/kanjidic2.json')
+				.node('character.*', function(entry){
+					if(entry.literal === character){					
+						document.getElementById("kanjiCharacter").innerText = entry.literal;
+						
+						if (entry.reading_meaning.rmgroup.meaning){						
+							var meaningString = entry.reading_meaning.rmgroup.meaning.toString();
+							meaningString = meaningString.replace(/,/g, ", ");
+							document.getElementById("titleMeaning").style.display = "block";						
+							document.getElementById("kanjiMeaning").innerText = meaningString;
+						}
+						
+						// the 'reading' object may contain multiple readings, in which case the variable is an array
+						// instead of an object
+						if(Array.isArray(entry.reading_meaning.rmgroup.reading)){					
+							var readingArray = entry.reading_meaning.rmgroup.reading;
+							var kunArray = new Array;
+							var onArray = new Array;
+							
+							readingArray.forEach(function(reading, index){
+								if (reading.r_type === "ja_kun"){								
+									kunArray.push(reading.text);								
+								} else if (reading.r_type === "ja_on"){	
+									onArray.push(reading.text);
+								}
+							});					
+												
+							if (kunArray.length > 0){
+								var kunString = kunArray.toString();
+								kunString = kunString.replace(/,/g, ", ");
+								document.getElementById("titleKun").style.display = "block";
+								document.getElementById("kanjiKun").innerText = kunString;
+							}
+							
+							if (onArray.length > 0){
+								var onString = onArray.toString();
+								onString = onString.replace(/,/g, ", ");
+								document.getElementById("titleOn").style.display = "block";
+								document.getElementById("kanjiOn").innerText = onString;
+							}
+						} else {
+							if (entry.reading_meaning.rmgroup.reading.r_type === "ja_kun"){	
+								document.getElementById("titleKun").style.display = "block";						
+								document.getElementById("kanjiKun").innerText = entry.reading_meaning.rmgroup.reading.text;
+							} else if (entry.reading_meaning.rmgroup.reading.r_type === "ja_on"){
+								document.getElementById("titleOn").style.display = "block";
+								document.getElementById("kanjiOn").innerText = entry.reading_meaning.rmgroup.reading.text;
+							}
+						}				
+							
+						if (entry.reading_meaning.nanori){
+							var nanoriString = entry.reading_meaning.nanori.toString();
+							nanoriString = nanoriString.replace(/,/g, ", ");
+							document.getElementById("titleNanori").style.display = "block";
+							document.getElementById("kanjiNanori").innerText = nanoriString;
+						}						
+						document.getElementById("searchLink").innerText = "View on Jisho.org";
+						document.getElementById("searchLink").href = "https://jisho.org/search/"+entry.literal+"%23kanji";
+						this.abort();
+					} else {
+						document.getElementById("kanjiCharacter").innerText = "Character not found"
+						document.getElementById("searchLink").innerText = "Google search";
+						document.getElementById("searchLink").href = "https://www.google.com/search?q="+character;
+					}					
+				});		
+		}
+		
+		function generateTranslation(){
+			var translateBox = document.getElementById("translatedText");
+			translateBox.value = "";
+			var characterArray = textbox.value.split("");
+			var translatedArray = [];
+			
+			characterArray.forEach(function(character, characterIndex){
+				oboe('/kanjidict/kanjidic2.json')
+					.node('character.*', function(entry){
+						if(entry.literal === character){
+							var meanings = entry.reading_meaning.rmgroup.meaning;							
+							if (Array.isArray(meanings)){
+								translatedArray[characterIndex] = meanings[0];								
+							} else {
+								translatedArray[characterIndex] = meanings;
+							}
+							
+							translateBox.value = translatedArray.toString().replace(/,/g, " ");
+							this.abort();
+						}						
+				})	
+			});
+		}
+		</script>
+	</body>
+
+
+</html>
