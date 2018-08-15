@@ -177,6 +177,7 @@
 								<textarea id="rawText" class="textarea is-medium" rows="4"></textarea>											
 							</div>
 							<a id="translateButton" class="button" href="" target="_blank">Google Translate</a>
+							<a id="searchButton" class="button" href="" target="_blank">Search Jisho.org</a>
 							<button class="button" onclick="copyText()">Copy to Clipboard</button>
 							<button class="button" onclick="generateTranslation()">Generate Definitions</button>
 							<div>								
@@ -297,6 +298,11 @@
 		var translateButton = document.getElementById("translateButton");
 		textbox.onchange = function(){			
 			translateButton.href = "https://translate.google.com/#ja/en/" + textbox.value;
+		}
+		
+		var searchButton = document.getElementById("searchButton");
+		textbox.onchange = function(){			
+			searchButton.href = "https://jisho.org/search/" + textbox.value;
 		}
 			
 
@@ -616,6 +622,7 @@
 				}
 			});
 			translateButton.href = "https://translate.google.com/#ja/en/" + textbox.value;
+			searchButton.href = "https://jisho.org/search/" + textbox.value;
 		}
 		
 		function copyText(){
