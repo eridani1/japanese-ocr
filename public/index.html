@@ -607,7 +607,7 @@
 				printText();
 			}).then(function(data){
 				document.getElementById("ocrStatus").innerText = "";
-				document.getElementById("postResults").style.display = "block";				
+				document.getElementById("postResults").style.display = "block";			
 			});
 		}
 		
@@ -779,6 +779,7 @@
 		
 		function generateTranslation(){
 			var translateBox = document.getElementById("translatedText");
+			translateBox.style.display = "block";
 			translateBox.value = "";
 			var characterArray = textbox.value.split("");
 			var translatedArray = [];

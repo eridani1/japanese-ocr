@@ -53,6 +53,10 @@
 	color:black;	
 }
 
+#translatedText{
+	display:none;
+}
+
 #kanjiCharacter{
 	font-weight: normal;
 }
