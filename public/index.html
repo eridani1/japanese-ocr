@@ -11,7 +11,8 @@
 		<script src="/dist/tesseract.js"></script>		
 		<script src="/dist/opencv.js" type="text/javascript"></script>
 		<script src="/dist/oboe-browser.js"></script>
-		<script src="/socket.io/socket.io.js"></script>		
+		<script src="/socket.io/socket.io.js"></script>
+		<script src ="/dist/wanakana.min.js"></script>
 	</head>
 
 	<body>	
@@ -19,6 +20,7 @@
 			<div class="columns">
 				<div class="column is-half">
 					<section class="section" id="uploading">
+						<h1 class="title">Japanese Image to Text</h1>
 						<h1 class="title">Step 1 - Select Image</h1>
 						<div id="inputUpload">							
 							<div class="file has-name">
@@ -137,9 +139,9 @@
 						<p>Select Language (may help with some Kanji):</p>
 						<div class="select">
 							<select id="languageSelect">
-								<option value='jpn' selected>Japanese</option>
-								<option value='chi_sim' >Chinese (Simplified)</option>
-								<option value='chi_tra' >Chinese (Traditional)</option>						
+								<option value="jpn" selected>Japanese</option>
+								<option value="chi_sim" >Chinese (Simplified)</option>
+								<option value="chi_tra" >Chinese (Traditional)</option>						
 							</select>
 						</div>	
 						<div>							
@@ -163,6 +165,14 @@
 						<div id="ocrResult"></div>
 						
 						<div id="postResults">
+							<p>Text input:</p>
+							<div class="select">
+								<select id="kanaSelect">
+									<option value="hiragana" selected>Hiragana</option>
+									<option value="katakana">Katakana</option>
+									<option value="english" >English</option>					
+								</select>
+							</div>
 							<div>								
 								<textarea id="rawText" class="textarea is-medium" rows="4"></textarea>											
 							</div>
@@ -254,6 +264,36 @@
 		}, false);
 		
 		var textbox = document.getElementById("rawText");
+		
+		var selectedKana = document.getElementById("kanaSelect");
+		var isBound = false;
+		switch (selectedKana.value){
+			case "hiragana":					
+				wanakana.bind(textbox, {IMEMode: 'toHiragana'});
+				isBound = true;
+				break;
+			case "katakana":
+				wanakana.bind(textbox, {IMEMode: 'toKatakana'});
+				isBound = true;				
+		}
+		
+		selectedKana.onchange = function(){
+			if (isBound){
+				wanakana.unbind(textbox);
+				isBound = false;
+			}
+			switch (selectedKana.value){
+				case "hiragana":					
+					wanakana.bind(textbox, {IMEMode: 'toHiragana'});
+					isBound = true;
+					break;
+				case "katakana":
+					wanakana.bind(textbox, {IMEMode: 'toKatakana'});
+					isBound = true;						
+			}			
+		}
+		
+		
 		var translateButton = document.getElementById("translateButton");
 		textbox.onchange = function(){			
 			translateButton.href = "https://translate.google.com/#ja/en/" + textbox.value;
@@ -513,6 +553,8 @@
 		function scanFile(){
 			var resultsElement = document.getElementById("ocrResult");
 			resultsElement.innerHTML = "";
+			rawText.value = "";
+			document.getElementById("translatedText").value = "";
 					
 			var file = document.getElementById('canvasOutput');
 			
@@ -644,86 +686,88 @@
 			printText();
 		}
 		
-		function dictionarySearch(character){		
-			document.getElementById("kanjiDetails").style.display = "block";		
-			document.getElementById("kanjiCharacter").innerText = "Searching...";
+		function dictionarySearch(character){
+			if (wanakana.isKanji(character)){
+				document.getElementById("kanjiDetails").style.display = "block";		
+				document.getElementById("kanjiCharacter").innerText = "Searching...";
 
-			var contents = document.getElementsByClassName("dictionaryContents");		
-			Array.prototype.forEach.call(contents, function(content, index){
-				content.innerHTML = "";
-			});	
-			
-			var headings = document.getElementsByClassName("dictionaryHeadings");			
-			Array.prototype.forEach.call(headings, function(heading, index){
-				heading.style.display = "none";
-			});					
+				var contents = document.getElementsByClassName("dictionaryContents");		
+				Array.prototype.forEach.call(contents, function(content, index){
+					content.innerHTML = "";
+				});	
 				
-		
-			oboe('/kanjidict/kanjidic2.json')
-				.node('character.*', function(entry){
-					if(entry.literal === character){					
-						document.getElementById("kanjiCharacter").innerText = entry.literal;
-						
-						if (entry.reading_meaning.rmgroup.meaning){						
-							var meaningString = entry.reading_meaning.rmgroup.meaning.toString();
-							meaningString = meaningString.replace(/,/g, ", ");
-							document.getElementById("titleMeaning").style.display = "block";						
-							document.getElementById("kanjiMeaning").innerText = meaningString;
-						}
-						
-						// the 'reading' object may contain multiple readings, in which case the variable is an array
-						// instead of an object
-						if(Array.isArray(entry.reading_meaning.rmgroup.reading)){					
-							var readingArray = entry.reading_meaning.rmgroup.reading;
-							var kunArray = new Array;
-							var onArray = new Array;
+				var headings = document.getElementsByClassName("dictionaryHeadings");			
+				Array.prototype.forEach.call(headings, function(heading, index){
+					heading.style.display = "none";
+				});					
+					
+			
+				oboe('/kanjidict/kanjidic2.json')
+					.node('character.*', function(entry){
+						if(entry.literal === character){					
+							document.getElementById("kanjiCharacter").innerText = entry.literal;
 							
-							readingArray.forEach(function(reading, index){
-								if (reading.r_type === "ja_kun"){								
-									kunArray.push(reading.text);								
-								} else if (reading.r_type === "ja_on"){	
-									onArray.push(reading.text);
+							if (entry.reading_meaning.rmgroup.meaning){						
+								var meaningString = entry.reading_meaning.rmgroup.meaning.toString();
+								meaningString = meaningString.replace(/,/g, ", ");
+								document.getElementById("titleMeaning").style.display = "block";						
+								document.getElementById("kanjiMeaning").innerText = meaningString;
+							}
+							
+							// the 'reading' object may contain multiple readings, in which case the variable is an array
+							// instead of an object
+							if(Array.isArray(entry.reading_meaning.rmgroup.reading)){					
+								var readingArray = entry.reading_meaning.rmgroup.reading;
+								var kunArray = new Array;
+								var onArray = new Array;
+								
+								readingArray.forEach(function(reading, index){
+									if (reading.r_type === "ja_kun"){								
+										kunArray.push(reading.text);								
+									} else if (reading.r_type === "ja_on"){	
+										onArray.push(reading.text);
+									}
+								});					
+													
+								if (kunArray.length > 0){
+									var kunString = kunArray.toString();
+									kunString = kunString.replace(/,/g, ", ");
+									document.getElementById("titleKun").style.display = "block";
+									document.getElementById("kanjiKun").innerText = kunString;
 								}
-							});					
-												
-							if (kunArray.length > 0){
-								var kunString = kunArray.toString();
-								kunString = kunString.replace(/,/g, ", ");
-								document.getElementById("titleKun").style.display = "block";
-								document.getElementById("kanjiKun").innerText = kunString;
-							}
-							
-							if (onArray.length > 0){
-								var onString = onArray.toString();
-								onString = onString.replace(/,/g, ", ");
-								document.getElementById("titleOn").style.display = "block";
-								document.getElementById("kanjiOn").innerText = onString;
-							}
+								
+								if (onArray.length > 0){
+									var onString = onArray.toString();
+									onString = onString.replace(/,/g, ", ");
+									document.getElementById("titleOn").style.display = "block";
+									document.getElementById("kanjiOn").innerText = onString;
+								}
+							} else {
+								if (entry.reading_meaning.rmgroup.reading.r_type === "ja_kun"){	
+									document.getElementById("titleKun").style.display = "block";						
+									document.getElementById("kanjiKun").innerText = entry.reading_meaning.rmgroup.reading.text;
+								} else if (entry.reading_meaning.rmgroup.reading.r_type === "ja_on"){
+									document.getElementById("titleOn").style.display = "block";
+									document.getElementById("kanjiOn").innerText = entry.reading_meaning.rmgroup.reading.text;
+								}
+							}				
+								
+							if (entry.reading_meaning.nanori){
+								var nanoriString = entry.reading_meaning.nanori.toString();
+								nanoriString = nanoriString.replace(/,/g, ", ");
+								document.getElementById("titleNanori").style.display = "block";
+								document.getElementById("kanjiNanori").innerText = nanoriString;
+							}						
+							document.getElementById("searchLink").innerText = "View on Jisho.org";
+							document.getElementById("searchLink").href = "https://jisho.org/search/"+entry.literal+"%23kanji";
+							this.abort();
 						} else {
-							if (entry.reading_meaning.rmgroup.reading.r_type === "ja_kun"){	
-								document.getElementById("titleKun").style.display = "block";						
-								document.getElementById("kanjiKun").innerText = entry.reading_meaning.rmgroup.reading.text;
-							} else if (entry.reading_meaning.rmgroup.reading.r_type === "ja_on"){
-								document.getElementById("titleOn").style.display = "block";
-								document.getElementById("kanjiOn").innerText = entry.reading_meaning.rmgroup.reading.text;
-							}
-						}				
-							
-						if (entry.reading_meaning.nanori){
-							var nanoriString = entry.reading_meaning.nanori.toString();
-							nanoriString = nanoriString.replace(/,/g, ", ");
-							document.getElementById("titleNanori").style.display = "block";
-							document.getElementById("kanjiNanori").innerText = nanoriString;
-						}						
-						document.getElementById("searchLink").innerText = "View on Jisho.org";
-						document.getElementById("searchLink").href = "https://jisho.org/search/"+entry.literal+"%23kanji";
-						this.abort();
-					} else {
-						document.getElementById("kanjiCharacter").innerText = "Character not found"
-						document.getElementById("searchLink").innerText = "Google search";
-						document.getElementById("searchLink").href = "https://www.google.com/search?q="+character;
-					}					
-				});		
+							document.getElementById("kanjiCharacter").innerText = "Character not found"
+							document.getElementById("searchLink").innerText = "Google search";
+							document.getElementById("searchLink").href = "https://www.google.com/search?q="+character;
+						}					
+					});	
+			}				
 		}
 		
 		function generateTranslation(){
