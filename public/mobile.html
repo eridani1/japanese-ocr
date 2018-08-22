@@ -165,7 +165,8 @@
 			let imageElement = new Image;			
 			imageElement.src = URL.createObjectURL(image.files[0]);	
 			imageElement.onload = function() {
-				var ratio = imageElement.naturalHeight/imageElement.naturalWidth;				
+				var ratio = imageElement.naturalHeight/imageElement.naturalWidth;
+				// limit image size to width of 800 pixels
 				canvas.width = 800;
 				canvas.height = 800*ratio;
 				context.drawImage(imageElement,0,0,imageElement.naturalWidth,imageElement.naturalHeight,0,0,800,800*ratio);		
@@ -188,13 +189,19 @@
 			var resultsElement = document.getElementById("ocrResult");
 			resultsElement.innerHTML = "";					
 			
+			// create object to send to server
 			var dataObject = {
+				// convert image to jpg to reduce file size
 				imageData: canvas.toDataURL('image/jpeg', 1.0),
 				lang: document.querySelector("#languageSelect").value
-			}			
+			}		
+				
+			// establish connection to server
 			var socket = io();
+			// send object to server
 			socket.emit("scan", dataObject);			
 			
+			// wait for response from server
 			socket.on("scan", function(result){				
 				var resultsString = result;		
 				socket.disconnect(close);
@@ -217,6 +224,8 @@
 				}						
 				printText();
 				document.getElementById("postResults").style.display = "block";
+				
+				// scroll page to results after completion
 				resultsElement.scrollIntoView(true);
 			});
 		}
@@ -280,8 +289,6 @@
 								document.getElementById("kanjiMeaning").innerText = meaningString;
 							}
 							
-							// the 'reading' object may contain multiple readings, in which case the variable is an array
-							// instead of an object
 							if(Array.isArray(entry.reading_meaning.rmgroup.reading)){					
 								var readingArray = entry.reading_meaning.rmgroup.reading;
 								var kunArray = new Array;

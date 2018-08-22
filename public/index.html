@@ -236,6 +236,8 @@
 		var imageCentered = false;
 		var dimensions = [0,0];
 		
+		// sliders for corresponding image editing functions
+		// show value of sliders and update in real-time when altered
 		var thresholdSlider = document.getElementById("threshValue");		
 		var thresholdSliderValue = document.getElementById("threshNumber");		
 		thresholdSliderValue.innerHTML = thresholdSlider.value;		
@@ -260,12 +262,14 @@
 		  rotateCustom();
 		}		
 
+		// add listener for CTRL+V input 
 		window.addEventListener("paste", function(pasteEvent){
 			showScreenshot(pasteEvent);			
 		}, false);
 		
 		var textbox = document.getElementById("rawText");
 		
+		// using wanakana to allow input of kana in textarea
 		var selectedKana = document.getElementById("kanaSelect");
 		var isBound = false;
 		switch (selectedKana.value){
@@ -278,6 +282,7 @@
 				isBound = true;				
 		}
 		
+		// element must be unbound in order to switch binding type
 		selectedKana.onchange = function(){
 			if (isBound){
 				wanakana.unbind(textbox);
@@ -294,7 +299,7 @@
 			}			
 		}
 		
-		
+		// automatically generate URL links based on the text in textbox 
 		var translateButton = document.getElementById("translateButton");
 		textbox.onchange = function(){			
 			translateButton.href = "https://translate.google.com/#ja/en/" + textbox.value;
@@ -305,7 +310,7 @@
 			searchButton.href = "https://jisho.org/search/" + textbox.value;
 		}
 			
-
+		// display an image on uploading/selecting
 		function showFile(){			
 			var image = document.getElementById('fileinput');			
 			document.getElementById('filename').innerHTML = image.files[0].name;
@@ -314,7 +319,9 @@
 			imageElement.src = URL.createObjectURL(image.files[0]);	
 			imageElement.onload = function() {
 				let src = cv.imread(imageElement);
+				// show image on canvas element using OpenCV
 				cv.imshow('canvasOutput', src);
+				// save images to memory to allow resetting of edits later
 				newImage = cv.imread('canvasOutput');
 				originalImage = cv.imread('canvasOutput');
 				src.delete();								
@@ -322,6 +329,7 @@
 			displayPostUpload();			
 		}
 		
+		// same as showFile() but altered for showing images obtained via external URLs
 		function showURL(data){
 			var image = new Image;
 			image.src = data;
@@ -332,16 +340,15 @@
 				newImage = cv.imread('canvasOutput');
 				originalImage = cv.imread('canvasOutput');
 				src.delete();				
-			};
-			
-			displayPostUpload();
-			
+			};			
+			displayPostUpload();			
 		}
 
+		// show image stored in clipboard, called on paste event
 		function showScreenshot(event){
 			var items = event.clipboardData.items;
 			for (var counter = 0; counter < items.length; counter++) {
-				// Skip if not image
+				// skip if not clipboard item is not an image
 				if (items[counter].type.indexOf("image") == -1){
 					var notImageFlag = true;
 					continue;			
@@ -363,20 +370,7 @@
 			
 		}
 		
-		function centerImage(){
-			let diagonal = Math.sqrt(canvas.height*canvas.height+canvas.width*canvas.width);
-			let verticalBorder = (diagonal - canvas.height)/2;
-			let horizontalBorder = (diagonal - canvas.width)/2;
-			
-			let src = cv.imread('canvasOutput');
-			let dst = new cv.Mat();
-			let border = new cv.Scalar(0, 0, 0, 0);
-			cv.copyMakeBorder(src, dst, verticalBorder, verticalBorder, horizontalBorder, horizontalBorder, cv.BORDER_CONSTANT, border);
-			cv.imshow('canvasOutput', dst);
-			src.delete();
-			dst.delete();
-		}
-		
+		// shows elements that should only be displayed after an image is uploaded
 		function displayPostUpload(){
 			var displayElements = document.getElementsByClassName('postUpload');
 			Array.prototype.forEach.call(displayElements, function(element, index){
@@ -384,6 +378,7 @@
 			});
 		}
 		
+		// reset all edits and show the originally uploaded file
 		function resetImage(){
 			let src = new cv.Mat(originalImage);
 			cv.imshow('canvasOutput', src);
@@ -392,6 +387,7 @@
 			imageCentered = false;
 		}
 		
+		// function for toggling editing options
 		function toggleOptions(element){
 			var optionElements = document.getElementsByClassName('options');
 			Array.prototype.forEach.call(optionElements, function(option, index){
@@ -408,23 +404,28 @@
 			}			
 		}
 		
+		// resizing an image using OpenCV
 		function resizeImage(factor){			
 			let src = cv.imread('canvasOutput');
 			let dst = new cv.Mat();
+			// prevent enlarging an image beyond 800 pixels width
 			if (canvas.width * factor<800){				
 				let dsize = new cv.Size(0, 0);
 				cv.resize(src, dst, dsize, factor, factor, cv.INTER_CUBIC);	
 			} else {
+				// enlarge to a maximum width of 800 pixels while maintaining aspect ratio
 				let aspectRatio = canvas.height/canvas.width;
 				let dsize = new cv.Size(800, 800*aspectRatio);
 				cv.resize(src, dst, dsize, 0, 0, cv.INTER_CUBIC);
 			}				
 			cv.imshow('canvasOutput', dst);
+			// save the image after edits are complete
 			newImage = cv.imread('canvasOutput');
 			src.delete();
 			dst.delete();							
 		}
 		
+		// resizing image using a custom value obtained via the corresponding slider
 		function resizeCustom(){
 			let src = new cv.Mat(newImage);
 			let dst = new cv.Mat();			
@@ -438,10 +439,12 @@
 				cv.resize(src, dst, dsize, 0, 0, cv.INTER_CUBIC);
 			}				
 			cv.imshow('canvasOutput', dst);
+			// edits are displayed but not saved
 			src.delete();
 			dst.delete();							
 		}
 		
+		// image rotation using OpenCV
 		function rotateImage(angle){	
 			let src = cv.imread('canvasOutput');
 			let dst = new cv.Mat();
@@ -450,7 +453,7 @@
 			let verticalBorder = (diagonal - src.rows)/2;
 			let horizontalBorder = (diagonal - src.cols)/2;
 			
-			
+			// create a border around image to ensure the point of rotation is always at the center of a square image
 			let border = new cv.Scalar(0, 0, 0, 0);
 			cv.copyMakeBorder(src, src, verticalBorder, verticalBorder, horizontalBorder, horizontalBorder, cv.BORDER_CONSTANT, border);
 			
@@ -459,6 +462,7 @@
 			let M = cv.getRotationMatrix2D(center, angle, 1);
 			cv.warpAffine(src, src, M, dsize, cv.INTER_CUBIC, cv.BORDER_CONSTANT, new cv.Scalar());
 			
+			// crop the rotated image to remove the created border
 			let area = new cv.Rect(verticalBorder,horizontalBorder, src.cols-verticalBorder*2, src.rows-horizontalBorder*2);
 			dst = src.roi(area);
 			
@@ -469,9 +473,11 @@
 			M.delete();	
 		}
 		
+		// rotate image using a custom value obtained via the corresponding slider
 		function rotateCustom(){
 			let src = new cv.Mat(newImage);
 			let dst = new cv.Mat();	
+			// create a border if the image is not already centered
 			if (!imageCentered){
 				dimensions = [newImage.cols,newImage.rows];
 				let diagonal = Math.sqrt(src.rows*src.rows+src.cols*src.cols);
@@ -480,7 +486,8 @@
 				let border = new cv.Scalar(0, 0, 0, 0);
 				cv.copyMakeBorder(src, src, verticalBorder, verticalBorder, horizontalBorder, horizontalBorder, cv.BORDER_CONSTANT, border);				
 				cv.imshow('canvasOutput', src);
-				newImage = cv.imread('canvasOutput');				
+				newImage = cv.imread('canvasOutput');	
+				// border is created so image is centered
 				imageCentered = true;
 			}			
 			let angle = 0-parseInt(rotateSlider.value);					
@@ -494,10 +501,13 @@
 			M.delete();
 		}
 		
+		// image thresholding using OpenCV
 		function thresholdImage(){						
-			let src = new cv.Mat(newImage);				
+			let src = new cv.Mat(newImage);			
+			// threshold value is obtained via the corresponding slider
 			let thresh = parseInt(thresholdSlider.value);
 			let type;
+			// threshold type obtained via the corresponding select element
 			switch(document.getElementById("thresholdType").value){
 				case "Binary":
 					type = cv.THRESH_BINARY;
@@ -528,11 +538,14 @@
 			dst.delete();
 		}
 		
+		// manually saving the image if edited via a slider, and cropping the border if one was created
 		function saveEdit(){
+			// if the image is centered via rotation, the image will have a border
 			if (imageCentered){
 				let src = cv.imread('canvasOutput');
 				let dst = new cv.Mat();										
 				
+				// calculate the new dimensions of the rotated image without borders
 				let radians = Math.PI/180;				
 				let angle = radians * parseInt(rotateSlider.value);
 								
@@ -544,20 +557,23 @@
 				let areaX2 = canvas.width-areaX1*2;
 				let areaY2 = canvas.height-areaY1*2;
 
+				// crop borders from image
 				let area = new cv.Rect(areaX1,areaY1, areaX2, areaY2);
 				dst = src.roi(area);
 				cv.imshow('canvasOutput', dst);
 				src.delete();
 				dst.delete();
+				// image no longer has borders and is not centered
 				imageCentered = false;
 			}		
-			
-			newImage = cv.imread('canvasOutput');
-						
+			// save edits
+			newImage = cv.imread('canvasOutput');						
 		}
 		
+		// OCR function using Tesseract
 		function scanFile(){
 			var resultsElement = document.getElementById("ocrResult");
+			// reset results and textarea on new scan
 			resultsElement.innerHTML = "";
 			rawText.value = "";
 			document.getElementById("translatedText").value = "";
@@ -567,15 +583,21 @@
 			Tesseract.workerOptions.langPath = window.location.origin + "/lang/";
 			
 			Tesseract.recognize(file, {
+				// language to recognize defined by corresponding select element
 				lang: document.querySelector("#languageSelect").value
 			})
 			.progress(function(result) {
+				// show status of OCR process
 				document.getElementById("ocrStatus").innerText = "Status: " + result["status"] + " (" + (result["progress"] * 100) + "%)";
-			}).then(function(result){
+			}).then(function(result){								
+				// symbol objects are stored in an array
 				var symbolArray = result.symbols;
-				var textString = result.text.replace(/ /g, "");				
+				// remove spaces from text-only results
+				var textString = result.text.replace(/ /g, "");		
+				// store each character as an element in an array
 				var textArray = textString.split("");
 								
+				// change font size of text depending on length of results
 				if (symbolArray.length > 50){
 					resultsElement.style.fontSize = "1.8rem";
 				} else {
@@ -586,17 +608,22 @@
 					resultsElement.innerHTML = "No characters detected";
 				} else {
 					symbolArray.forEach(function(symbol, symbolIndex){
+						// insert break tags in the results if a new line character is found in text
 						if (textArray[symbolIndex] == "\n"){
 							var breakTag = document.createElement("BR");
 							breakTag.setAttribute("class","resultSymbols");
 							resultsElement.appendChild(breakTag);
+							// remove new line character from the array to ensure both symbolArray and textArray match
 							textArray.splice(symbolIndex,1);
 						}
 						
+						// create mouse-over dropdown menu for each character
 						createDropdown(symbolIndex, symbol.text);
 
+						// show the section of the image where the character was found in the dropdown
 						drawSymbols(symbol, symbolIndex);					
 						
+						// show the alternate characters recognized in the dropdown
 						var choiceArray = symbol.choices;
 						choiceArray.forEach(function(choice, choiceIndex){
 							addChoice(symbolIndex,choiceIndex, choice.text);
@@ -604,36 +631,45 @@
 					});			
 					
 				}
+				// display the results in text in a textarea element
 				printText();
 			}).then(function(data){
+				// hide progress text
 				document.getElementById("ocrStatus").innerText = "";
+				// show the elements that should be displayed after OCR is complete
 				document.getElementById("postResults").style.display = "block";			
 			});
 		}
 		
+		// displaying results as text in textarea element
 		function printText(){
 			textbox.value = ""
 			var symbolArray= document.getElementsByClassName("resultSymbols");			
 			Array.prototype.forEach.call(symbolArray, function(symbol, index){
+				// insert a linebreak if break tag is found
 				if (symbol.nodeName == "BR"){
 					textbox.value += "\n";
 				} else {
 					textbox.value += symbol.innerText;
 				}
 			});
+			// update links with the text in textarea element
 			translateButton.href = "https://translate.google.com/#ja/en/" + textbox.value;
 			searchButton.href = "https://jisho.org/search/" + textbox.value;
 		}
 		
+		// copy text in textarea element via a clicked button
 		function copyText(){
 			textbox.select();
 			document.execCommand("copy");
 		}
 		
+		// creating dropdown menus for each symbol
 		function createDropdown(symbolNumber, elementText){
 			var template = document.getElementById("dropdownTemplate");
 			var clone = template.content.cloneNode(true);
 			
+			// edit attributes for each element to identify each symbol
 			var symbolTag = clone.querySelector("a");
 			symbolTag.setAttribute("id","symbol"+symbolNumber);
 			symbolTag.setAttribute("onclick","dictionarySearch('"+elementText+"')");
@@ -651,6 +687,7 @@
 			document.getElementById("ocrResult").appendChild(clone);
 		}
 		
+		// bounding-box information obtained from Tesseract results object, used to draw the section of image where character was found
 		function drawSymbols(symbolObject, symbolNumber){		
 			var symbolx = symbolObject.bbox.x0;
 			var symbolWidth = symbolObject.bbox.x1 - symbolx;
@@ -661,16 +698,19 @@
 			var symbolCanvas = document.getElementById("symbolCanvas"+symbolNumber);
 			var symbolContext = symbolCanvas.getContext("2d");
 						
+			// ensure height of the canvas element does not exceed 50 pixels while maintaining aspect ratio
 			symbolCanvas.width = symbolAspectRatio*50;
 			symbolHeight.height = 50;
 						
 			symbolContext.drawImage(canvas, symbolx, symboly, symbolWidth, symbolHeight,0,0,symbolAspectRatio*50,50);							
 		}
 		
+		// add alternate character choices to dropdown menu
 		function addChoice(symbolNumber, choiceNumber, choiceText){
 			var template = document.getElementById("choicesTemplate");
 			var clone = template.content.cloneNode(true);
 			
+			// edit attributes for each element to identify each choice and the symbol it belongs to
 			var choiceTag = clone.querySelector("a");
 			choiceTag.setAttribute("id","symbol"+symbolNumber+"choice"+choiceNumber);
 			choiceTag.setAttribute("onclick","replaceSymbol("+symbolNumber+","+choiceNumber+")");
@@ -681,10 +721,13 @@
 			choiceDropdown.insertBefore(clone, removeTag);	
 		}
 		
+		// replacing a symbol with the selected choice
 		function replaceSymbol(symbolNumber, choiceNumber){
 			var newSymbol = document.getElementById("symbol"+symbolNumber+"choice" + choiceNumber).innerText;
 			document.getElementById("symbol" + symbolNumber).innerText = newSymbol;
+			// update argument for dictionarySearch() function
 			document.getElementById("symbol" + symbolNumber).setAttribute("onclick","dictionarySearch('"+newSymbol+"')");
+			// update textarea element when symbol is replaced
 			printText();
 		}
 		
@@ -693,11 +736,14 @@
 			printText();
 		}
 		
+		// searching the kanji dictionary JSON file for selected character
 		function dictionarySearch(character){
+			// ensure search only processes for kanji characters
 			if (wanakana.isKanji(character)){
 				document.getElementById("kanjiDetails").style.display = "block";		
 				document.getElementById("kanjiCharacter").innerText = "Searching...";
-
+	
+				// reset any shown elements
 				var contents = document.getElementsByClassName("dictionaryContents");		
 				Array.prototype.forEach.call(contents, function(content, index){
 					content.innerHTML = "";
@@ -708,34 +754,39 @@
 					heading.style.display = "none";
 				});					
 					
-			
+				// begin streaming JSON file
 				oboe('/kanjidict/kanjidic2.json')
 					.node('character.*', function(entry){
-						if(entry.literal === character){					
+						if(entry.literal === character){			
+							// display information if character is found in file
 							document.getElementById("kanjiCharacter").innerText = entry.literal;
 							
+							// display character meanings if they exist
 							if (entry.reading_meaning.rmgroup.meaning){						
 								var meaningString = entry.reading_meaning.rmgroup.meaning.toString();
+								// seperate meanings with a comma and space
 								meaningString = meaningString.replace(/,/g, ", ");
 								document.getElementById("titleMeaning").style.display = "block";						
 								document.getElementById("kanjiMeaning").innerText = meaningString;
 							}
 							
-							// the 'reading' object may contain multiple readings, in which case the variable is an array
-							// instead of an object
+							// the 'reading' object may contain multiple readings, in which case the variable is an array instead of an object
 							if(Array.isArray(entry.reading_meaning.rmgroup.reading)){					
 								var readingArray = entry.reading_meaning.rmgroup.reading;
 								var kunArray = new Array;
 								var onArray = new Array;
 								
+								// reading object may contain both kun'yomi and on'yomi readings
 								readingArray.forEach(function(reading, index){
+									// seperate readings into corresponding arrays
 									if (reading.r_type === "ja_kun"){								
 										kunArray.push(reading.text);								
 									} else if (reading.r_type === "ja_on"){	
 										onArray.push(reading.text);
 									}
 								});					
-													
+								
+								// display kun'yomi readings if they exist
 								if (kunArray.length > 0){
 									var kunString = kunArray.toString();
 									kunString = kunString.replace(/,/g, ", ");
@@ -743,6 +794,7 @@
 									document.getElementById("kanjiKun").innerText = kunString;
 								}
 								
+								// display on'yomi readings if they exist
 								if (onArray.length > 0){
 									var onString = onArray.toString();
 									onString = onString.replace(/,/g, ", ");
@@ -750,6 +802,7 @@
 									document.getElementById("kanjiOn").innerText = onString;
 								}
 							} else {
+								// processing when only a single result exists
 								if (entry.reading_meaning.rmgroup.reading.r_type === "ja_kun"){	
 									document.getElementById("titleKun").style.display = "block";						
 									document.getElementById("kanjiKun").innerText = entry.reading_meaning.rmgroup.reading.text;
@@ -758,15 +811,18 @@
 									document.getElementById("kanjiOn").innerText = entry.reading_meaning.rmgroup.reading.text;
 								}
 							}				
-								
+							
+							// display nanori readings if they exist
 							if (entry.reading_meaning.nanori){
 								var nanoriString = entry.reading_meaning.nanori.toString();
 								nanoriString = nanoriString.replace(/,/g, ", ");
 								document.getElementById("titleNanori").style.display = "block";
 								document.getElementById("kanjiNanori").innerText = nanoriString;
-							}						
+							}		
+							// provide search links to external URLs
 							document.getElementById("searchLink").innerText = "View on Jisho.org";
 							document.getElementById("searchLink").href = "https://jisho.org/search/"+entry.literal+"%23kanji";
+							// end JSON file streaming
 							this.abort();
 						} else {
 							document.getElementById("kanjiCharacter").innerText = "Character not found"
@@ -777,6 +833,7 @@
 			}				
 		}
 		
+		// generating meanings for every recognized character
 		function generateTranslation(){
 			var translateBox = document.getElementById("translatedText");
 			translateBox.style.display = "block";
@@ -790,11 +847,13 @@
 						if(entry.literal === character){
 							var meanings = entry.reading_meaning.rmgroup.meaning;							
 							if (Array.isArray(meanings)){
+								// store meanings in array to ensure correct order
+								// only the first meaning is shown if there are multiple
 								translatedArray[characterIndex] = meanings[0];								
 							} else {
 								translatedArray[characterIndex] = meanings;
 							}
-							
+							// seperate meanings with a space
 							translateBox.value = translatedArray.toString().replace(/,/g, " ");
 							this.abort();
 						}						
@@ -802,12 +861,14 @@
 			});
 		}
 		
+		// add listeners for clicking on canvas element
 		document.addEventListener("DOMContentLoaded", init, false);
 		function init(){			
 			canvas.addEventListener("mousedown", mousedown, false);			
 			canvas.addEventListener("mouseup", mouseup, false);									
 		}		
 		
+		// obtaining x and y position of mouse
 		function getPosition(canvas, event){			
 			var rect = canvas.getBoundingClientRect();
 			var scaleX = canvas.width / canvas.scrollWidth;
@@ -823,6 +884,7 @@
 			cv.imshow('canvasOutput', src);
 			src.delete();
 			coordinate1 = getPosition(canvas, event);
+			// add mousemove event listener to simulate clicking and dragging
 			canvas.addEventListener("mousemove", mousemove, false);
 		}
 		
@@ -832,7 +894,8 @@
 			src.delete();
 			
 			coordinate2 = getPosition(canvas, event);
-				
+			
+			// ensure no negative widths or heights
 			if (coordinate1.x < coordinate2.x){
 				var x = coordinate1.x;
 				var newWidth = coordinate2.x - coordinate1.x;
@@ -848,6 +911,8 @@
 				var y = coordinate2.y;
 				var newHeight = coordinate1.y - coordinate2.y;
 			}
+			
+			// draw outline of selected area
 			if (newWidth>0 && newHeight>0){
 				context.beginPath();
 				context.fillStyle = "rgba(0, 0, 0, 0.4)";
@@ -859,11 +924,14 @@
 		}
 		
 		function mouseup(event){
+			// remove listener when click and drag is complete
 			canvas.removeEventListener("mousemove", mousemove);
 		}
 		
 		function cropImage(){
+			// check if coordinates have been obtained
 			if(coordinate1 && coordinate2){
+				// ensure no negative widths or heights
 				if (coordinate1.x < coordinate2.x){
 					var x = coordinate1.x;
 					var newWidth = coordinate2.x - coordinate1.x;
@@ -892,9 +960,12 @@
 			}
 		}
 		
+		// obtaining an image from external URLs
 		function sendURL(){
-			var address = document.getElementById('imageURL');			
+			var address = document.getElementById('imageURL');		
+			// validate URL; must begin with http(s), and end with an appropriate file format 
 			if (address.value.match(/^(?:http(s)?:\/\/).*\.(?:png|jpg|jpeg|gif|png|svg)/) == null){
+				// display error message if URL not valid
 				address.setAttribute("class","input is-danger");
 				address.setAttribute("placeholder", "Invalid URL");
 			} else {
@@ -904,17 +975,24 @@
 				var testImage = new Image;			
 				testImage.src = address.value;
 				submitButton.setAttribute("class","button is-loading");
-				
+					
+					// verify image by loading onto the page
 					testImage.onload = function() {
+						// display error if image exceeds limits
 						if (testImage.naturalWidth * testImage.naturalHeight > maxPixels){	
 							address.setAttribute("class","input is-danger");
 							address.setAttribute("placeholder", "Image too large");
-						} else {						
+						} else {			
+							// establish connection to server
 							var socket = io();
+							// image is passed to the server for downloading and processing
 							socket.emit("URL", testImage.src);
 							
+							// wait for response from server
 							socket.on("URL", function(data){
+								// image is obtained from server as base64
 								showURL(data);
+								// close connection
 								socket.disconnect(close);
 							});
 							
@@ -924,6 +1002,7 @@
 						submitButton.setAttribute("class","button");
 					}
 					
+					// display error message if image fails to load
 					testImage.onerror = function(){
 						address.setAttribute("class","input is-danger");
 						address.setAttribute("placeholder", "Invalid Image");
