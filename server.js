@@ -29,7 +29,7 @@ io.on('connection', function(socket){
 			client = httpsfile;
 		}
 
-		client.get(address, (resp) => 
+		client.get(address, (resp) => {
 			// convert image to base64
 			resp.setEncoding('base64');
 			body = "data:" + resp.headers["content-type"] + ";base64,";
